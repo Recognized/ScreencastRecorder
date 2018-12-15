@@ -1,0 +1,45 @@
+<idea-plugin>
+  <id>com.github.recognized.screencast.recorder</id>
+  <name>Screencast Recorder</name>
+  <version>1.0</version>
+  <vendor email="vladsayf@gmail.com" url="https://github.com/Recognized/ScreencastRecorder">Me</vendor>
+
+  <description><![CDATA[
+    Plugin for recording and reproducing IDE screencasts.
+    ]]></description>
+
+  <depends>com.intellij.modules.lang</depends>
+  <depends>com.intellij.modules.platform</depends>
+  <depends>com.intellij.testGuiFramework</depends>
+
+  <extensions defaultExtensionNs="com.intellij">
+    <generatedCodeReceiver
+        implementation="com.github.recognized.screencast.recorder.GeneratedCodeReceiver"/>
+    <fileTypeFactory
+        implementation="com.github.recognized.screencast.recorder.format.ScreencastFileTypeFactory"/>
+  </extensions>
+  <actions>
+    <group
+        text="Screencast Recorder"
+        id="ScreencastRecorder"
+        popup="true"
+        compact="false"
+        icon="ScreencastRecorderIcons.SCREENCAST">
+      <add-to-group
+          group-id="ToolsMenu"
+          anchor="last"/>
+      <group id="vladsaif.syncedit.plugin.recActions" popup="false" compact="false">
+        <action id="com.github.recognized.screencast.recorder.actions.StartRecordingAction"
+                class="com.github.recognized.screencast.recorder.actions.StartRecordingAction"
+                text="Start recording"
+                description="Start screencast recording"
+                icon="AllIcons.Ide.Macro.Recording_1"/>
+        <action id="com.github.recognized.screencast.recorder.actions.StopRecordingAction"
+                class="com.github.recognized.screencast.recorder.actions.StopRecordingAction"
+                text="Stop recording"
+                description="Stop screencast recording"
+                icon="AllIcons.Ide.Macro.Recording_2"/>
+      </group>
+    </group>
+  </actions>
+</idea-plugin>
