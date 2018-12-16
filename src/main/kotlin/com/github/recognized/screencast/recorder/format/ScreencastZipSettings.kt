@@ -27,7 +27,11 @@ class ScreencastZipSettings {
   }
 
   operator fun <T> set(key: Key<T>, value: T?) {
-    myEntries[key.name] = value as Any
+    if (value == null) {
+      myEntries.remove(key.name)
+    } else {
+      myEntries[key.name] = value as Any
+    }
   }
 
   override fun equals(other: Any?): Boolean {
