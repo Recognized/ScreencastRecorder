@@ -3,6 +3,7 @@ package com.github.recognized.screencast.recorder.format
 import com.intellij.openapi.diagnostic.logger
 import com.github.recognized.screencast.recorder.sound.EditionsModel
 import com.github.recognized.screencast.recorder.sound.EditionsView
+import kotlinx.serialization.json.JSON
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.io.InputStream
@@ -19,7 +20,10 @@ object ScreencastZipper {
   private val LOG = logger<ScreencastZipper>()
 
   fun createZip(out: Path, action: ZipperScope.() -> Unit) {
-    ZipperScope(out).use(action)
+    ZipperScope(out).use {
+      it.action()
+      it.saveSettings()
+    }
   }
 
   @Suppress("unused")
@@ -107,46 +111,16 @@ object ScreencastZipper {
       }
     }
 
-    private fun saveSettings() {
+    fun saveSettings() {
       val stream = ByteArrayOutputStream()
-      JAXB.marshal(settings, stream)
+      stream.write(JSON.unquoted.stringify(ScreencastZipSettings.serializer(), settings).toByteArray())
       writeEntry(out.fileName.toString() + ".settings", EntryType.SETTINGS, stream.toByteArray())
     }
 
     override fun close() {
-      try {
-        saveSettings()
-        myZipStream.close()
-      } catch (ex: Exception) {
-        LOG.info(ex)
-      }
+      myZipStream.close()
     }
 
-  }
-
-  private class EditionsViewAdapter : XmlAdapter<String, EditionsView>() {
-    override fun marshal(v: EditionsView): String {
-      return Base64.getEncoder().encodeToString(v.serialize())
-    }
-
-    override fun unmarshal(v: String): EditionsView {
-      return EditionsModel.deserialize(Base64.getDecoder().decode(v))
-    }
-  }
-
-  // Exact implementation from Java 9 JDK
-  @Throws(IOException::class)
-  private fun InputStream.transferTo(out: OutputStream): Long {
-    var transferred: Long = 0
-    val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-    var read: Int
-    while (true) {
-      read = this.read(buffer, 0, DEFAULT_BUFFER_SIZE)
-      if (read < 0) break
-      out.write(buffer, 0, read)
-      transferred += read.toLong()
-    }
-    return transferred
   }
 
   enum class EntryType {
@@ -154,4 +128,19 @@ object ScreencastZipper {
     IMPORTED_AUDIO,
     SETTINGS
   }
+}
+
+// Exact implementation from Java 9 JDK
+@Throws(IOException::class)
+internal fun InputStream.transferTo(out: OutputStream): Long {
+  var transferred: Long = 0
+  val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+  var read: Int
+  while (true) {
+    read = this.read(buffer, 0, DEFAULT_BUFFER_SIZE)
+    if (read < 0) break
+    out.write(buffer, 0, read)
+    transferred += read.toLong()
+  }
+  return transferred
 }

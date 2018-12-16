@@ -1,7 +1,7 @@
 <idea-plugin>
   <id>com.github.recognized.screencast.recorder</id>
   <name>ScreencastRecorder</name>
-  <version>0.91</version>
+  <version>0.93</version>
   <idea-version since-build="182"/>
   <vendor email="vladsayf@gmail.com" url="https://github.com/Recognized/ScreencastRecorder">Me</vendor>
 

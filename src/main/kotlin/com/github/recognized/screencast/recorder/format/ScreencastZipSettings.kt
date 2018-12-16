@@ -1,25 +1,11 @@
 package com.github.recognized.screencast.recorder.format
 
 import com.github.recognized.screencast.recorder.sound.EditionsView
-import javax.xml.bind.annotation.XmlElement
-import javax.xml.bind.annotation.adapters.XmlAdapter
-import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter
+import kotlinx.serialization.Serializable
 
+@Serializable
 class ScreencastZipSettings {
-  @field:XmlJavaTypeAdapter(MapAdapter::class)
   private val myEntries: MutableMap<String, Any> = mutableMapOf()
-
-  private class MapAdapter : XmlAdapter<Array<MapElements>, Map<String, Any>>() {
-    override fun marshal(map: Map<String, Any>): Array<MapElements> {
-      return map.map { (a, b) -> MapElements(a, b) }.toTypedArray()
-    }
-
-    override fun unmarshal(array: Array<MapElements>): Map<String, Any> {
-      val map = mutableMapOf<String, Any>()
-      array.forEach { map[it.key] = it.value }
-      return map
-    }
-  }
 
   @Suppress("unchecked_cast")
   operator fun <T> get(key: Key<T>): T? {
@@ -49,16 +35,6 @@ class ScreencastZipSettings {
 
   override fun toString(): String {
     return "ScreencastZipSettings(keys=${myEntries.keys})"
-  }
-
-  private class MapElements(
-    @XmlElement
-    var key: String,
-    @XmlElement
-    var value: Any
-  ) {
-
-    private constructor() : this("", "") //Required by JAXB
   }
 
   class Key<T>(val name: String)

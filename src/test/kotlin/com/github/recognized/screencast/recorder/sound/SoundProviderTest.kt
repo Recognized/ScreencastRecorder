@@ -1,7 +1,7 @@
-package vladsaif.syncedit.plugin.sound
+package com.github.recognized.screencast.recorder.sound
 
+import com.github.recognized.screencast.recorder.format.ScreencastZipperTest.Companion.RESOURCES_PATH
 import org.junit.Test
-import vladsaif.syncedit.plugin.RESOURCES_PATH
 import java.io.InputStream
 import java.nio.file.Files
 import javax.sound.sampled.AudioFormat

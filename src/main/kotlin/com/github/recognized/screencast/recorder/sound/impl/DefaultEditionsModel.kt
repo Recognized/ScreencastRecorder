@@ -4,9 +4,24 @@ import com.github.recognized.kotlin.ranges.extensions.length
 import com.github.recognized.kotlin.ranges.union.LongRangeUnion
 import com.github.recognized.screencast.recorder.sound.EditionsModel
 import com.github.recognized.screencast.recorder.sound.EditionsModel.EditionType.*
+import kotlinx.serialization.*
+import java.util.*
 
-
+@Serializable
 class DefaultEditionsModel : EditionsModel {
+
+  @Serializer(forClass = DefaultEditionsModel::class)
+  companion object : KSerializer<DefaultEditionsModel> {
+
+    override fun deserialize(input: Decoder): DefaultEditionsModel {
+      return EditionsModel.deserialize(Base64.getDecoder().decode(input.decodeString())) as DefaultEditionsModel
+    }
+
+    override fun serialize(output: Encoder, obj: DefaultEditionsModel) {
+      output.encodeString(Base64.getEncoder().encodeToString(obj.serialize()))
+    }
+  }
+
   private val myCutRanges = LongRangeUnion()
   private val myMuteRanges = LongRangeUnion()
   private val myNoChangesRanges = LongRangeUnion()
