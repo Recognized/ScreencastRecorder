@@ -66,9 +66,14 @@ intellij {
     instrumentCode true
 }
 
+jar.configure {
+    from sourceSets.main.allSource
+    from sourceSets.main.output
+}
+
 patchPluginXml {
     sinceBuild "182"
-    version "1.0"
+    version "0.9"
 }
 
 publishPlugin {
@@ -82,8 +87,12 @@ repositories {
 dependencies {
     compile group: "javazoom", name: "jlayer", version: "1.0.1"
     compile group: "com.googlecode.soundlibs", name: "mp3spi", version: "1.9.5.4"
-    compile "com.github.Recognized:kotlin-ranges-union:v1.01"
-    compile "com.github.Recognized:kotlin-ranges-extensions:v1.01"
+    compile("com.github.Recognized:kotlin-ranges-union:v1.01") {
+        exclude group: "org.jetbrains.kotlin", module: "kotlin-stdlib"
+    }
+    compile("com.github.Recognized:kotlin-ranges-extensions:v1.01") {
+        exclude group: "org.jetbrains.kotlin", module: "kotlin-stdlib"
+    }
     testCompile("org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version") {
         exclude group: "org.jetbrains.kotlin", module: "kotlin-stdlib-common"
         exclude group: "org.jetbrains.kotlin", module: "kotlin-stdlib"

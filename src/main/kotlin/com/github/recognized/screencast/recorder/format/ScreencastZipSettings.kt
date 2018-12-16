@@ -57,7 +57,7 @@ class ScreencastZipSettings {
     private constructor() : this("", "") //Required by JAXB
   }
 
-  class Key<T> internal constructor(val name: String)
+  class Key<T>(val name: String)
 
   companion object {
 
