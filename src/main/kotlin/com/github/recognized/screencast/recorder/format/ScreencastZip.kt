@@ -1,11 +1,8 @@
 package com.github.recognized.screencast.recorder.format
 
 import com.github.recognized.screencast.recorder.format.ScreencastZipper.EntryType.*
-import kotlinx.serialization.json.JSON
-import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import java.nio.file.Path
-import java.util.stream.Collectors
 import java.util.zip.ZipFile
 import javax.xml.bind.JAXB
 
@@ -19,10 +16,8 @@ class ScreencastZip(val path: Path) {
     get() = getInputStreamByType(IMPORTED_AUDIO) ?: throw IllegalStateException("Imported audio is not set")
 
   fun readSettings(): ScreencastZipSettings {
-    val out = ByteArrayOutputStream()
     return getInputStreamByType(SETTINGS)?.use {
-      it.transferTo(out)
-      JSON.parse(ScreencastZipSettings.serializer(), out.toString())
+      JAXB.unmarshal(it, ScreencastZipSettings::class.java)
     } ?: ScreencastZipSettings()
   }
 

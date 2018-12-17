@@ -1,20 +1,16 @@
 package com.github.recognized.screencast.recorder.format
 
-import com.intellij.openapi.diagnostic.logger
-import com.github.recognized.screencast.recorder.sound.EditionsModel
 import com.github.recognized.screencast.recorder.sound.EditionsView
-import kotlinx.serialization.json.JSON
+import com.intellij.openapi.diagnostic.logger
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
 import java.nio.file.Files
 import java.nio.file.Path
-import java.util.*
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 import javax.xml.bind.JAXB
-import javax.xml.bind.annotation.adapters.XmlAdapter
 
 object ScreencastZipper {
   private val LOG = logger<ScreencastZipper>()
@@ -113,7 +109,7 @@ object ScreencastZipper {
 
     fun saveSettings() {
       val stream = ByteArrayOutputStream()
-      stream.write(JSON.unquoted.stringify(ScreencastZipSettings.serializer(), settings).toByteArray())
+      JAXB.marshal(settings, stream)
       writeEntry(out.fileName.toString() + ".settings", EntryType.SETTINGS, stream.toByteArray())
     }
 
