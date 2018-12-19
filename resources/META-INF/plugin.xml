@@ -1,12 +1,22 @@
 <idea-plugin>
   <id>com.github.recognized.screencast.recorder</id>
   <name>ScreencastRecorder</name>
-  <version>0.94</version>
+  <version>0.95</version>
   <idea-version since-build="182"/>
   <vendor email="vladsayf@gmail.com" url="https://github.com/Recognized">Vladislav Sayfulin</vendor>
 
   <description><![CDATA[
-    Plugin for recording and reproducing IDE screencasts.
+
+    <p>Plugin for recording and reproducing (not yet available) IDE screencasts.</p>
+    <p>
+    Current controls:
+    <ul>
+    <li>Start: Tools menu → Screencast Recorder →  Start recording</li>
+    <li>Stop: Tools menu → Screencast Recorder → Stop recording</li>
+    </ul>
+    After recording has been finished, you can san save or discard recorded screencast.
+    </p>
+
     ]]></description>
 
   <depends>com.intellij.modules.lang</depends>
