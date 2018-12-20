@@ -15,6 +15,8 @@
     <li>Stop: Tools menu → Screencast Recorder → Stop recording</li>
     </ul>
     After recording has been finished, you can san save or discard recorded screencast.
+
+    See <a href="https://plugins.jetbrains.com/plugin/11442-screencasteditor">ScreencastEditor</a> plugin for editing.
     </p>
 
     ]]></description>
