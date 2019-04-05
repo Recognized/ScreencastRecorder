@@ -60,7 +60,7 @@ sourceSets {
 
 intellij {
     pluginName "ScreencastRecorder"
-    plugins "com.intellij.testGuiFramework:183.3647.12"
+    plugins "com.intellij.testGuiFramework:183.6156.11"
     version "183.3647.12"
     downloadSources true
     instrumentCode true

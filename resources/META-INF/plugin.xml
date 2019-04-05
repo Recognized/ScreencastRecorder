@@ -1,11 +1,11 @@
 <idea-plugin>
-  <id>com.github.recognized.screencast.recorder</id>
-  <name>ScreencastRecorder</name>
-  <version>0.95</version>
-  <idea-version since-build="182"/>
-  <vendor email="vladsayf@gmail.com" url="https://github.com/Recognized">Vladislav Sayfulin</vendor>
+    <id>com.github.recognized.screencast.recorder</id>
+    <name>ScreencastRecorder</name>
+    <version>0.95</version>
+    <idea-version since-build="182"/>
+    <vendor email="vladsayf@gmail.com" url="https://github.com/Recognized">Vladislav Sayfulin</vendor>
 
-  <description><![CDATA[
+    <description><![CDATA[
 
     <p>Plugin for recording and reproducing (not yet available) IDE screencasts.</p>
     <p>
@@ -21,38 +21,51 @@
 
     ]]></description>
 
-  <depends>com.intellij.modules.lang</depends>
-  <depends>com.intellij.modules.platform</depends>
-  <depends>com.intellij.testGuiFramework</depends>
+    <depends>com.intellij.modules.lang</depends>
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.testGuiFramework</depends>
 
-  <extensions defaultExtensionNs="com.intellij">
-    <generatedCodeReceiver
-        implementation="com.github.recognized.screencast.recorder.GeneratedCodeReceiver"/>
-    <fileTypeFactory
-        implementation="com.github.recognized.screencast.recorder.format.ScreencastFileTypeFactory"/>
-  </extensions>
-  <actions>
-    <group
-        text="Screencast Recorder"
-        id="ScreencastRecorder"
-        popup="true"
-        compact="false"
-        icon="ScreencastRecorderIcons.SCREENCAST">
-      <add-to-group
-          group-id="ToolsMenu"
-          anchor="last"/>
-      <group id="vladsaif.syncedit.plugin.recActions" popup="false" compact="false">
-        <action id="com.github.recognized.screencast.recorder.actions.StartRecordingAction"
-                class="com.github.recognized.screencast.recorder.actions.StartRecordingAction"
-                text="Start recording"
-                description="Start screencast recording"
-                icon="AllIcons.Ide.Macro.Recording_1"/>
-        <action id="com.github.recognized.screencast.recorder.actions.StopRecordingAction"
-                class="com.github.recognized.screencast.recorder.actions.StopRecordingAction"
-                text="Stop recording"
-                description="Stop screencast recording"
-                icon="AllIcons.Ide.Macro.Recording_2"/>
-      </group>
-    </group>
-  </actions>
+    <extensions defaultExtensionNs="com.intellij">
+        <generatedCodeReceiver
+                implementation="com.github.recognized.screencast.recorder.GeneratedCodeReceiver"/>
+        <fileTypeFactory
+                implementation="com.github.recognized.screencast.recorder.format.ScreencastFileTypeFactory"/>
+    </extensions>
+    <actions>
+        <group
+                text="Screencast Recorder"
+                id="ScreencastRecorder"
+                popup="true"
+                compact="false"
+                icon="ScreencastRecorderIcons.SCREENCAST">
+            <add-to-group
+                    group-id="ToolsMenu"
+                    anchor="last"/>
+            <group id="vladsaif.syncedit.plugin.recActions" popup="false" compact="false">
+                <action id="com.github.recognized.screencast.recorder.actions.StartRecordingAction"
+                        class="com.github.recognized.screencast.recorder.actions.StartRecordingAction"
+                        text="Start recording"
+                        description="Start screencast recording"
+                        icon="AllIcons.Ide.Macro.Recording_1"/>
+                <action id="com.github.recognized.screencast.recorder.actions.StopRecordingAction"
+                        class="com.github.recognized.screencast.recorder.actions.StopRecordingAction"
+                        text="Stop recording"
+                        description="Stop screencast recording"
+                        icon="AllIcons.Ide.Macro.Recording_2"/>
+            </group>
+        </group>
+        <group id="vladsaif.syncedit.plugin.ProjectViewGroup"
+               text="Screencast Recorder"
+               popup="false"
+               compact="true">
+            <add-to-group group-id="ProjectViewPopupMenu" anchor="after"
+                          relative-to-action="ProjectViewPopupMenuRunGroup"/>
+            <action id="com.github.recognized.screencast.player.RunScreencastFromPV"
+                    class="com.github.recognized.screencast.player.RunScreencastFromPV"
+                    text="Run Screencast"
+                    description="Run Screencast"
+                    icon="ScreencastRecorderIcons.SCREENCAST">
+            </action>
+        </group>
+    </actions>
 </idea-plugin>
