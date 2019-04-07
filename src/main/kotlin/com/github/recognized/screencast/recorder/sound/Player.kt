@@ -25,6 +25,8 @@ interface Player : AutoCloseable {
 
   fun stopImmediately()
 
+  val started: Boolean
+
   companion object {
 
     fun create(
@@ -66,6 +68,9 @@ interface Player : AutoCloseable {
       mySource.stop()
     }
 
+    private var _started = false
+    override val started: Boolean get() = _started
+
     override fun stopImmediately() {
       mySignalStopReceived = true
       mySource.stop()
@@ -93,6 +98,7 @@ interface Player : AutoCloseable {
 
     override fun play(errorHandler: (Throwable) -> Unit) {
       mySource.start()
+      _started = true
       thread(start = true) {
         SoundProvider.withWaveformPcmStream(getAudioStream()) { inputStream ->
           try {

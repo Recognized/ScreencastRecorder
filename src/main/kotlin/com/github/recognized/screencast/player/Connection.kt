@@ -2,9 +2,10 @@ package com.github.recognized.screencast.player
 
 import java.net.InetAddress
 import java.net.Socket
+import java.net.SocketException
 import kotlin.concurrent.thread
 
-val PORT = 26000
+const val PORT = 26000
 
 class PlayerClient(val socket: Socket) : AutoCloseable by socket {
 
@@ -13,10 +14,10 @@ class PlayerClient(val socket: Socket) : AutoCloseable by socket {
   private val output = socket.getOutputStream().bufferedWriter(Charsets.UTF_8)
 
   @Volatile
-  private var state: String = ""
+  private var state: PlayerServer.State = PlayerServer.State.IDLE
     set(value) {
       field = value
-      report(value)
+      report(PlayerServer.Response.STATE, value.name)
       time()
     }
 
@@ -24,22 +25,23 @@ class PlayerClient(val socket: Socket) : AutoCloseable by socket {
 
   init {
     thread {
-      for (line in input.lineSequence()) {
-        if (line in listOf(PlayerServer.PLAY, PlayerServer.STOP, PlayerServer.PAUSE)) {
-          state = line
-        } else {
-          log("Unknown command '" + line + "'")
+      try {
+        for (line in input.lineSequence()) {
+          PlayerServer.State.values().firstOrNull { line.trim() == it.name }?.let {
+            state = it
+          } ?: log("Unknown error $line")
         }
+      } catch (ex: SocketException) {
       }
     }
   }
 
   private fun time() {
-    report("TIME " + playTime)
+//    report(PlayerServer.Response.TIME, playTime.toString())
   }
 
-  private fun report(str: String) {
-    output.write(str + "\n")
+  private fun report(type: PlayerServer.Response, str: String) {
+    output.write("${type.name} ${str.replace('\n', ' ')}\n")
     output.flush()
   }
 
@@ -57,25 +59,30 @@ class PlayerClient(val socket: Socket) : AutoCloseable by socket {
   }
 
   private fun log(message: String) {
-    report("LOG " + message.replace('\n', ' '))
+    report(PlayerServer.Response.LOG, message.replace('\n', ' '))
   }
 
   fun ___end() {
-    state = PlayerServer.END
+    state = PlayerServer.State.END
     time()
   }
 
   fun ___start() {
-    while (state != PlayerServer.PLAY) {
+    while (state != PlayerServer.State.PLAY) {
     }
     playTime = 0
     time()
   }
 
+  fun ___codeError(ex: Throwable) {
+    report(PlayerServer.Response.CODE_ERROR, ex.message ?: ex::class.simpleName ?: "")
+    log(ex.toString())
+  }
+
   private fun loop() {
     var previousTime = System.currentTimeMillis()
     while (waitLeft > 0L) {
-      if (state != PlayerServer.PLAY) {
+      if (state != PlayerServer.State.PLAY) {
         break
       }
       Thread.sleep(16)
@@ -89,39 +96,65 @@ class PlayerClient(val socket: Socket) : AutoCloseable by socket {
 
   private fun handleState() {
     when (state) {
-      PlayerServer.PAUSE -> {
+      PlayerServer.State.PAUSE -> {
         while (true) {
           Thread.sleep(16)
-          if (state != PlayerServer.PAUSE) {
+          if (state != PlayerServer.State.PAUSE) {
             break
           }
         }
       }
-      PlayerServer.STOP -> {
-        throw Exception("STOP")
+      PlayerServer.State.IDLE -> {
+        throw StopClient()
       }
+      PlayerServer.State.STOP -> {
+        socket.shutdownInput()
+        socket.shutdownOutput()
+        throw CloseClient()
+      }
+      else -> Unit
     }
   }
 }
 
+class StopClient : Exception()
+class CloseClient : Exception()
+
 fun ___connectClient(): PlayerClient {
-  while(true)  {
+  val tries = 30
+  var tried = 0
+  while (true) {
     try {
       val socket = Socket(InetAddress.getByName("localhost"), PORT)
       return PlayerClient(socket)
     } catch (ex: Throwable) {
-      println()
+      println("Trying to connect...")
+      if (tried-- > tries) {
+        throw IllegalStateException("Cannot connect. Timeout: ${tried}s. Port: $PORT")
+      }
       Thread.sleep(1000)
     }
   }
 }
 
-class PlayerServer(val socket: Socket, val log: (String) -> Unit) : AutoCloseable by socket {
+class PlayerServer(val socket: Socket) : AutoCloseable by socket {
 
   @Volatile
-  var eventHandler: (Int) -> Unit = {}
+  var stateChanged: (old: State, newState: State) -> Unit = { _, _ -> }
+  @Volatile
+  var codeError: (String) -> Unit = {}
   @Volatile
   var timeHandler: (Long) -> Unit = {}
+  @Volatile
+  var logger: (String) -> Unit = {}
+
+  @Volatile
+  var currentState: State = State.IDLE
+    set(value) {
+      stateChanged(field, value)
+      field = value
+    }
+
   private val input = socket.getInputStream().bufferedReader(Charsets.UTF_8)
   private val output = socket.getOutputStream().bufferedWriter(Charsets.UTF_8)
 
@@ -130,56 +163,58 @@ class PlayerServer(val socket: Socket, val log: (String) -> Unit) : AutoCloseabl
       throw error("Socket closed")
     }
     thread {
-      for (line in input.lineSequence()) {
-        val code = when (line) {
-          STOP -> STOP_CODE
-          PAUSE -> PAUSE_CODE
-          PLAY -> PLAY_CODE
-          else -> {
-            log(line.removePrefix("LOG "))
-            -1
+      try {
+        for (line in input.lineSequence()) {
+          Response.values().firstOrNull { line.startsWith(it.name) }?.let {
+            val msg = line.removePrefix(it.name).trim()
+            when (it) {
+              Response.LOG -> logger(msg)
+              Response.CODE_ERROR -> codeError(msg)
+              Response.TIME -> timeHandler(msg.toLong())
+              Response.STATE -> {
+                State.values().first { state -> msg == state.name }.let { state ->
+                  currentState = state
+                }
+              }
+            }
           }
         }
-        if (line.startsWith("TIME")) {
-          timeHandler(line.removePrefix("TIME").trim().toLong())
-        } else {
-          eventHandler(code)
-        }
+      } catch (socketEx: SocketException) {
+
+      } catch (ex: Throwable) {
+        logger(ex.message ?: ex::class.simpleName ?: "")
       }
     }
   }
 
 
   fun pause() {
-    sendCommand(PAUSE)
+    sendCommand(State.PAUSE)
+  }
+
+  fun reset() {
+    sendCommand(State.IDLE)
   }
 
   fun stop() {
-    sendCommand(STOP)
+    sendCommand(State.STOP)
   }
 
   fun play() {
-    sendCommand(PLAY)
+    sendCommand(State.PLAY)
   }
 
-  private fun sendCommand(command: String) {
-    output.write(command + "\n")
+  private fun sendCommand(command: State) {
+    output.write(command.name)
+    output.write("\n")
     output.flush()
   }
 
-  companion object {
-    const val PAUSE = "pause"
-    const val STOP = "stop"
-    const val PLAY = "play"
-    const val END = "end"
-
-    const val STOP_CODE = 0
-    const val PAUSE_CODE = 1
-    const val PLAY_CODE = 2
-    const val END_CODE = 3
+  enum class State {
+    STOP, PAUSE, PLAY, END, IDLE
   }
-}
 
-fun ___error(ex: Throwable) {
-  println("CLIENT: " + ex)
+  enum class Response {
+    CODE_ERROR, LOG, TIME, STATE
+  }
 }

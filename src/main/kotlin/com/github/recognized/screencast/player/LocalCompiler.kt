@@ -19,9 +19,7 @@ package com.github.recognized.screencast.player
 import com.intellij.ide.plugins.cl.PluginClassLoader
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.PathManager
-import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.extensions.PluginId
-import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.util.SystemInfo
 import com.intellij.openapi.util.io.FileUtil
@@ -32,7 +30,6 @@ import java.io.BufferedReader
 import java.io.File
 import java.io.FileNotFoundException
 import java.io.InputStreamReader
-import java.nio.file.Path
 import java.util.*
 import java.util.concurrent.TimeUnit
 import java.util.stream.Collectors

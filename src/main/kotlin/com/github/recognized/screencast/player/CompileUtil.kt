@@ -13,7 +13,7 @@ object CompileUtil {
   private val localCompiler: LocalCompiler by lazy { LocalCompiler() }
 
   fun compileAndRun(codeString: String) {
-    localCompiler.compileAndRunOnPooledThread(MyScriptWrapper.wrapScript(codeString).also { println(it) },
+    localCompiler.compileAndRunOnPooledThread(MyScriptWrapper.wrapScript(codeString),
         getAllUrls().map { Paths.get(it.toURI()).toFile().path })
   }
 
@@ -34,6 +34,7 @@ object CompileUtil {
     set.addAll(ServiceManager::class.java.classLoader.forcedUrls())
     set.addAll(PerformScriptAction::class.java.classLoader.forcedUrls())
     set.addAll(PerformScriptAction::class.java.classLoader.forcedBaseUrls())
+    set.addAll(ScreencastPlayerController::class.java.classLoader.forcedBaseUrls())
     if (!ApplicationManager.getApplication().isUnitTestMode)
       set.addAll(ServiceManager::class.java.classLoader.forcedBaseUrls())
     expandClasspathInJar(set)
@@ -77,5 +78,4 @@ object CompileUtil {
       return emptyList()
     }
   }
-
 }

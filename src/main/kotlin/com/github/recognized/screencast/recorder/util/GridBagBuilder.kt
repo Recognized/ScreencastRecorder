@@ -3,6 +3,11 @@ package com.github.recognized.screencast.recorder.util
 import java.awt.GridBagConstraints
 import java.awt.Insets
 
+
+fun grid(x: Int, y: Int, fill: Int? = null, wx: Double, wy: Double): GridBagConstraints {
+  return GridBagBuilder().gridx(x).gridy(y).fill(fill ?: GridBagConstraints.BOTH).weightx(wx).weighty(wy).done()
+}
+
 class GridBagBuilder {
   private val c = GridBagConstraints()
 

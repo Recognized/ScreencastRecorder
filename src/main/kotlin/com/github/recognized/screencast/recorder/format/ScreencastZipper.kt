@@ -1,6 +1,7 @@
 package com.github.recognized.screencast.recorder.format
 
 import com.github.recognized.screencast.recorder.sound.EditionsView
+import com.github.recognized.screencast.recorder.sound.SoundProvider
 import com.intellij.openapi.diagnostic.logger
 import java.io.ByteArrayOutputStream
 import java.io.IOException
@@ -75,6 +76,14 @@ object ScreencastZipper {
           input.transferTo(output)
         }
       }
+    }
+
+    fun totalPluginFrames(long: Long) {
+      settings[ScreencastZipSettings.TOTAL_LENGTH_PLUGIN] = long
+    }
+
+    fun totalImportedFrames(long: Long) {
+      settings[ScreencastZipSettings.TOTAL_LENGTH_PLUGIN] = long
     }
 
     fun addScript(script: String) {

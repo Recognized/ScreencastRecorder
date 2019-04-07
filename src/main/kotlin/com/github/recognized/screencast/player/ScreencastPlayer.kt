@@ -5,17 +5,26 @@ import com.github.recognized.screencast.recorder.format.ScreencastZipSettings
 import com.github.recognized.screencast.recorder.sound.Player
 import com.github.recognized.screencast.recorder.sound.impl.DefaultEditionsModel
 import com.github.recognized.screencast.recorder.util.GridBagBuilder
+import com.github.recognized.screencast.recorder.util.grid
+import com.intellij.openapi.actionSystem.AnAction
+import com.intellij.openapi.actionSystem.AnActionEvent
+import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.progress.ProgressManager
+import com.intellij.openapi.progress.Task
+import com.intellij.ui.JBColor
+import com.intellij.util.ui.JBUI
+import com.intellij.util.ui.UIUtil
 import icons.ScreencastRecorderIcons
-import java.awt.Dimension
-import java.awt.GridBagConstraints
-import java.awt.GridBagLayout
+import java.awt.*
 import java.net.ServerSocket
 import java.nio.file.Path
-import javax.swing.JButton
-import javax.swing.JFrame
-import javax.swing.JPanel
-import javax.swing.SwingUtilities
+import javax.swing.*
 import kotlin.concurrent.thread
+import javax.swing.JOptionPane
+import java.awt.event.WindowAdapter
+import java.awt.event.WindowEvent
+import java.awt.event.WindowListener
+
 
 class Logger(val name: String) {
 
@@ -24,42 +33,122 @@ class Logger(val name: String) {
   }
 }
 
-fun showController(screencast: Path) {
-  SwingUtilities.invokeLater {
-    PlayerWindow(screencast)
+@Volatile
+var errorOccurred = false
+
+class PauseScreencast : AnAction() {
+  override fun actionPerformed(e: AnActionEvent) {
+    currentController?.pause()
   }
 }
 
-class PlayerWindow(screencast: Path) : JFrame(screencast.toString()) {
+class PlayScreencast : AnAction() {
+  override fun actionPerformed(e: AnActionEvent) {
+    currentController?.play()
+  }
+}
 
-  private val player by lazy { ScreencastPlayerView(ScreencastZip(screencast)) }
+class StopScreencast : AnAction() {
+  override fun actionPerformed(e: AnActionEvent) {
+    currentController?.reset()
+  }
+}
+
+@Volatile
+var currentController: ScreencastPlayerController? = null
+
+fun showController(screencast: Path) {
+  ProgressManager.getInstance().run(object : Task.Modal(null, "Preparing screencast", false) {
+    override fun run(indicator: com.intellij.openapi.progress.ProgressIndicator) {
+      indicator.isIndeterminate = true
+      if (!indicator.isRunning) {
+        indicator.start()
+      }
+      val zip = ScreencastZip(screencast)
+      val controller = ScreencastPlayerController(zip)
+      controller.awaitInit(15000)
+      ApplicationManager.getApplication().invokeLater {
+        if (!errorOccurred) {
+          currentController = controller
+          PlayerWindow(zip, controller)
+        }
+        errorOccurred = false
+      }
+      if (indicator.isRunning) {
+        indicator.stop()
+      }
+    }
+  })
+
+}
+
+class PlayerWindow(zip: ScreencastZip, controller: ScreencastPlayerController) : JFrame(zip.path.toString()) {
+
+  private val player by lazy {
+    ScreencastPlayerView(controller, zip.readSettings()[ScreencastZipSettings.TOTAL_LENGTH_PLUGIN] ?: 0)
+  }
 
   init {
     player.initComponent()
     add(player)
-    size = Dimension(600, 200)
+    size = Dimension(JBUI.pixScale(600f).toInt(), JBUI.pixScale(80f).toInt())
     player.size = size
     isVisible = true
-    defaultCloseOperation = JFrame.DISPOSE_ON_CLOSE
-    player.controller.init()
+    isResizable = false
+    this.addWindowListener(object : WindowListener {
+      override fun windowClosing(e: WindowEvent) {
+        dispose()
+      }
+
+      override fun windowDeiconified(e: WindowEvent?) {
+      }
+
+      override fun windowClosed(e: WindowEvent?) {
+      }
+
+      override fun windowActivated(e: WindowEvent?) {
+      }
+
+      override fun windowDeactivated(e: WindowEvent?) {
+      }
+
+      override fun windowOpened(e: WindowEvent?) {
+      }
+
+      override fun windowIconified(e: WindowEvent?) {
+      }
+    })
   }
 
   override fun dispose() {
-    player.controller.use {
-      super.dispose()
+    try {
+      player.controller.close()
+    } catch (ex: Throwable) {
     }
+    currentController = null
   }
 }
 
-class ScreencastPlayerView(zip: ScreencastZip) : JPanel() {
+fun ScreencastPlayerController.awaitInit(timeout: Long) {
+  val time = System.currentTimeMillis()
+  init()
+  while (!serverReady && System.currentTimeMillis() < time + timeout && !errorOccurred) {
+    Thread.sleep(16)
+  }
+  if (!serverReady) {
+    throw IllegalStateException("Cannot connect to the screencast reproducer. Timeout: ${timeout}s")
+  }
+}
 
-  val controller = ScreencastPlayerController(zip)
+
+class ScreencastPlayerView(val controller: ScreencastPlayerController, totalLength: Long) : JPanel() {
 
   private val STOP_BUTTON by lazy {
     JButton(ScreencastRecorderIcons.STOP).apply {
       addActionListener {
-        controller.stop()
+        controller.reset()
       }
+      isEnabled = false
     }
   }
 
@@ -68,6 +157,7 @@ class ScreencastPlayerView(zip: ScreencastZip) : JPanel() {
       addActionListener {
         controller.pause()
       }
+      isEnabled = false
     }
   }
 
@@ -79,11 +169,114 @@ class ScreencastPlayerView(zip: ScreencastZip) : JPanel() {
     }
   }
 
+  private val PROGRESS by lazy {
+    val x = ProgressIndicator(totalLength.toDouble())
+    x.border = BorderFactory.createEmptyBorder(5, 0, 5, 0)
+    x
+  }
+
+  val timer = Timer(1000 / 60) {
+    PROGRESS.value = controller.pos.toDouble()
+  }.also { it.start() }
+
   fun initComponent() {
     layout = GridBagLayout()
-    add(STOP_BUTTON, GridBagBuilder().gridx(0).gridy(0).fill(GridBagConstraints.BOTH).weightx(1.0).done())
-    add(PAUSE_BUTTON, GridBagBuilder().gridx(1).gridy(0).fill(GridBagConstraints.BOTH).weightx(1.0).done())
-    add(PLAY_BUTTON, GridBagBuilder().gridx(2).gridy(0).fill(GridBagConstraints.BOTH).weightx(1.0).done())
+    val buttons = JPanel(GridBagLayout()).apply {
+      add(JPanel(), GridBagBuilder().gridx(0).gridy(0).fill(GridBagConstraints.BOTH).weightx(1.0).weighty(1.0).done())
+      add(STOP_BUTTON, GridBagBuilder().gridx(1).gridy(0).fill(GridBagConstraints.BOTH).weightx(0.0).done())
+      add(PAUSE_BUTTON, GridBagBuilder().gridx(2).gridy(0).fill(GridBagConstraints.BOTH).weightx(0.0).done())
+      add(PLAY_BUTTON, GridBagBuilder().gridx(3).gridy(0).fill(GridBagConstraints.BOTH).weightx(0.0).done())
+      add(JPanel(), GridBagBuilder().gridx(4).gridy(0).fill(GridBagConstraints.BOTH).weightx(1.0).weighty(1.0).done())
+    }
+    buttons.background = UIUtil.getEditorPaneBackground()
+    add(PROGRESS, grid(x = 0, y = 0, wx = 1.0, wy = 1.0))
+    add(buttons, grid(x = 0, y = 1, wx = 1.0, wy = 1.0))
+    controller.stateChanged = { _, newState ->
+      when (newState) {
+        PlayerServer.State.PLAY -> {
+          STOP_BUTTON.isEnabled = true
+          PLAY_BUTTON.isEnabled = false
+          PAUSE_BUTTON.isEnabled = true
+          started()
+        }
+        PlayerServer.State.PAUSE -> {
+          PLAY_BUTTON.isEnabled = true
+          STOP_BUTTON.isEnabled = true
+          PAUSE_BUTTON.isEnabled = false
+          paused()
+        }
+        PlayerServer.State.STOP -> {
+          stopped()
+        }
+        PlayerServer.State.END -> {
+          if (controller.playerEnded) {
+            STOP_BUTTON.isEnabled = false
+            PAUSE_BUTTON.isEnabled = false
+            PLAY_BUTTON.isEnabled = true
+            ended()
+          }
+        }
+        PlayerServer.State.IDLE -> {
+          STOP_BUTTON.isEnabled = false
+          PAUSE_BUTTON.isEnabled = false
+          PLAY_BUTTON.isEnabled = true
+          reset()
+        }
+      }
+    }
+    controller.playerClosed = {
+      if (controller.state == PlayerServer.State.END) {
+        STOP_BUTTON.isEnabled = false
+        PAUSE_BUTTON.isEnabled = false
+        PLAY_BUTTON.isEnabled = true
+        ended()
+      }
+    }
+  }
+
+  fun ended() {
+
+  }
+
+  fun stopped() {
+
+  }
+
+  fun paused() {
+
+  }
+
+  fun started() {
+
+  }
+
+  fun reset() {
+
+  }
+}
+
+class ProgressIndicator(val maxValue: Double) : JPanel() {
+
+  var value: Double = 0.0
+    set(value) {
+      field = value
+      repaint()
+    }
+
+  override fun paint(g: Graphics) {
+    with(g as Graphics2D) {
+      color = REST
+      fillRect(0, 0, width, height)
+      color = PASSED
+      if (maxValue != 0.0) {
+        fillRect(0, 0, Math.ceil(width * value / maxValue).toInt(), height)
+      }
+    }
+  }
+
+  companion object {
+    val PASSED = JBColor.link()
+    val REST: Color = JBColor(UIUtil.getEditorPaneBackground().darker(), UIUtil.getListBackground().brighter())
   }
 }
 
@@ -92,64 +285,109 @@ class ScreencastPlayerController(val zip: ScreencastZip) : AutoCloseable {
   private val script = zip.readSettings()[ScreencastZipSettings.SCRIPT_KEY]!!
   @Volatile
   private var server: PlayerServer? = null
-  private var firstTime = true
   private val log = Logger("server")
   private val clientLog = Logger("client")
 
   @Volatile
-  var serverReady = false
+  var state: PlayerServer.State = PlayerServer.State.IDLE
+    set(value) {
+      stateChanged(field, value)
+      field = value
+    }
+
   @Volatile
-  var clientReady = false
+  private var player: Player? = createPlayer()
+    set(value) {
+      try {
+        field?.close()
+      } catch (ex: Throwable) {
+      }
+      field = value
+    }
+
+
+  @Volatile
+  var playerEnded = false
+    set(value) {
+      field = value
+      if (value) {
+        playerClosed()
+      }
+    }
+
+  @Volatile
+  var playerClosed: () -> Unit = {}
+
+  @Volatile
+  var stateChanged: (old: PlayerServer.State, new: PlayerServer.State) -> Unit = { _, _ -> }
+
+  @Volatile
+  var serverReady = false
 
   private fun runServer() {
     thread {
       val server = ServerSocket(26000)
-      log.info { "Trying accept..." }
       val socket = server.accept()
       log.info { "Accepted" }
-      var firstTime = true
-      this.server = PlayerServer(socket) { clientLog.info { it } }.apply {
-        timeHandler = { this@ScreencastPlayerController.log.info { "Time: $it" } }
-        eventHandler = {
-          when (it) {
-            PlayerServer.PLAY_CODE -> if (firstTime) {
-              player.play(this@ScreencastPlayerController::handleError)
-              firstTime = false
-            } else {
-              player.resume()
+      this.server = PlayerServer(socket).apply {
+        timeHandler = { log.info { "Time: $it" } }
+        logger = { clientLog.info { it } }
+        codeError = { /* TODO */ }
+        stateChanged = { _, newState ->
+          when (newState) {
+            PlayerServer.State.PLAY -> player?.let {
+              if (!it.started) {
+                it.play { log.info { it } }
+              } else {
+                it.resume()
+              }
             }
-            PlayerServer.PAUSE_CODE -> player.pause()
-            PlayerServer.STOP_CODE -> player.stopImmediately()
-            PlayerServer.END_CODE -> println("ENDED")
+            PlayerServer.State.PAUSE -> player?.pause()
+            PlayerServer.State.IDLE -> {
+              player?.stopImmediately()
+              player = createPlayer().apply {
+                setOnStopAction { playerEnded = true }
+                state = PlayerServer.State.END
+              }
+            }
+            PlayerServer.State.END -> {
+              reset()
+            }
+            PlayerServer.State.STOP -> {
+            }
           }
+          state = newState
         }
       }
-      log.info { "Server ready" }
       serverReady = true
     }
   }
 
   private fun runClient() {
-    CompileUtil.compileAndRun(script)
-    log.info { "Client ready" }
-    clientReady = true
+    thread {
+      CompileUtil.compileAndRun(script)
+    }
   }
 
-  private val player = zip.readSettings().let {
-    if (zip.hasImportedAudio) {
-      Player.create(
-          it[ScreencastZipSettings.IMPORTED_EDITIONS_VIEW_KEY] ?: DefaultEditionsModel(),
-          it[ScreencastZipSettings.IMPORTED_AUDIO_OFFSET_KEY] ?: 0) {
-        zip.importedAudioInputStream
-      }
-    } else {
-      Player.create(
-          it[ScreencastZipSettings.PLUGIN_EDITIONS_VIEW_KEY] ?: DefaultEditionsModel(),
-          it[ScreencastZipSettings.PLUGIN_AUDIO_OFFSET_KEY] ?: 0) {
-        zip.audioInputStream
+  private fun createPlayer(): Player {
+    return zip.readSettings().let {
+      if (zip.hasImportedAudio) {
+        Player.create(
+            it[ScreencastZipSettings.IMPORTED_EDITIONS_VIEW_KEY] ?: DefaultEditionsModel(),
+            it[ScreencastZipSettings.IMPORTED_AUDIO_OFFSET_KEY] ?: 0) {
+          zip.importedAudioInputStream
+        }
+      } else {
+        Player.create(
+            it[ScreencastZipSettings.PLUGIN_EDITIONS_VIEW_KEY] ?: DefaultEditionsModel(),
+            it[ScreencastZipSettings.PLUGIN_AUDIO_OFFSET_KEY] ?: 0) {
+          zip.audioInputStream
+        }
       }
     }
   }
+
+  val pos get() = player?.getFramePosition() ?: 0
 
   fun init() {
     runServer()
@@ -157,12 +395,7 @@ class ScreencastPlayerController(val zip: ScreencastZip) : AutoCloseable {
   }
 
   fun play() {
-    if (firstTime) {
-      firstTime = false
-      server!!.play()
-    } else {
-      server!!.play()
-    }
+    server!!.play()
   }
 
   fun stop() {
@@ -173,13 +406,22 @@ class ScreencastPlayerController(val zip: ScreencastZip) : AutoCloseable {
     server!!.pause()
   }
 
-  private fun handleError(ex: Throwable) {
-    println("SERVER: $ex")
+  fun reset() {
+    server!!.reset()
   }
 
   override fun close() {
-    server.use {
-      player.close()
+    try {
+      server?.stop()
+    } catch (ex: Throwable) {
+      log.info { ex }
+    }
+    try {
+      server.use {
+        player?.close()
+      }
+    } catch (ex: Throwable) {
+      log.info { ex }
     }
   }
 }

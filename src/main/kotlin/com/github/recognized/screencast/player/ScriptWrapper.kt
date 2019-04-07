@@ -5,19 +5,27 @@ import com.intellij.testGuiFramework.recorder.compile.ScriptWrapper
 object MyScriptWrapper {
 
   fun wrapScript(code: String): String {
-    return imports + "\n" + ScriptWrapper.wrapScript(
-        """
+    return """
+      import com.github.recognized.screencast.player.*
 
-    try {
-     with(___connectClient()) {
-       ___start()
-       $code
-       ___end()
-        }
-     } catch (ex: Throwable) {
-       ___error(ex)
-     }
+      ${ScriptWrapper.wrapScript(
         """
-    ) + "\n" + inlineLib
+          with(___connectClient()) {
+            while (true) {
+              try {
+                ___start()
+                $code
+              } catch(ex: StopClient) {
+                continue
+              } catch(ex: CloseClient) {
+                return@with
+              } catch (ex: Throwable) {
+                ___codeError(ex)
+              }
+              ___end()
+            }
+          }
+          """)}
+    """
   }
 }

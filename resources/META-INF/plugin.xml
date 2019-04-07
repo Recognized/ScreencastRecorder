@@ -67,5 +67,27 @@
                     icon="ScreencastRecorderIcons.SCREENCAST">
             </action>
         </group>
+        <group id="vladsaif.syncedit.plugin.player" popup="false" compact="false">
+            <action id="com.github.recognized.screencast.player.PlayScreencast"
+                    class="com.github.recognized.screencast.player.PlayScreencast"
+                    text="Start screencast"
+                    description="Start screencast reproducing"
+            >
+                <keyboard-shortcut first-keystroke="control alt shift R" keymap="$default"/>
+            </action>
+            <action id="com.github.recognized.screencast.player.PauseScreencast"
+                    class="com.github.recognized.screencast.player.PauseScreencast"
+                    text="Pause screencast"
+                    description="Pause screencast reproducing"
+            >
+                <keyboard-shortcut first-keystroke="control alt shift P" keymap="$default"/>
+            </action>
+            <action id="com.github.recognized.screencast.player.StopScreencast"
+                    class="com.github.recognized.screencast.player.StopScreencast"
+                    text="Stop screencast"
+                    description="Stop screencast reproducing">
+                <keyboard-shortcut first-keystroke="control alt shift S" keymap="$default"/>
+            </action>
+        </group>
     </actions>
 </idea-plugin>

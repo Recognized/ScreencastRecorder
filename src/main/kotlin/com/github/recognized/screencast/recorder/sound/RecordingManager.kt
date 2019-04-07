@@ -166,10 +166,12 @@ object RecordingManager {
         try {
           ScreencastZipper.createZip(out) {
             addScript(GeneratedCodeReceiver.getAndFlush())
+            var l = 0L
             useAudioOutputStream(isPlugin = true) { out ->
               val length = Files.newInputStream(rawAudio).buffered().use { raw ->
                 SoundProvider.countFrames(raw, SoundRecorder.RECORD_FORMAT)
               }
+              l = length
               Files.newInputStream(rawAudio).buffered().use { raw ->
                 SoundProvider.getAudioInputStream(raw,
                   SoundRecorder.RECORD_FORMAT, length).use { audio ->
@@ -178,6 +180,7 @@ object RecordingManager {
                 }
               }
             }
+            totalPluginFrames(l)
           }
         } catch (ex: Exception) {
           runInEdt {

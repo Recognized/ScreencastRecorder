@@ -94,6 +94,16 @@ class ScreencastZipSettings {
     override fun deserialize(obj: String): String = obj
   }
 
+  class DoubleKey(name: String) : Key<Double>(name) {
+    override fun serialize(value: Double): String {
+      return value.toString()
+    }
+
+    override fun deserialize(obj: String): Double {
+      return obj.toDouble()
+    }
+  }
+
   companion object {
 
     val PLUGIN_AUDIO_OFFSET_KEY = LongKey("PLUGIN_AUDIO_OFFSET")
@@ -101,5 +111,7 @@ class ScreencastZipSettings {
     val IMPORTED_AUDIO_OFFSET_KEY = LongKey("IMPORTED_AUDIO_OFFSET")
     val IMPORTED_EDITIONS_VIEW_KEY = EditionsViewKey("IMPORTED_EDITIONS_VIEW")
     val SCRIPT_KEY = StringKey("SCRIPT")
+    val TOTAL_LENGTH_PLUGIN = LongKey("TOTAL_LENGTH_PLUGIN")
+    val TOTAL_LENGTH_IMPORTED = LongKey("TOTAL_LENGTH_IMPORTED")
   }
 }
