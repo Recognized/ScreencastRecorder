@@ -3,13 +3,16 @@ package com.github.recognized.screencast.player
 import java.net.InetAddress
 import java.net.Socket
 import java.net.SocketException
+import java.util.concurrent.atomic.AtomicLong
 import kotlin.concurrent.thread
+import kotlin.math.min
 
 const val PORT = 26000
 
 class PlayerClient(val socket: Socket) : AutoCloseable by socket {
 
   private var playTime = 0L
+  private var startTime = 0L
   private val input = socket.getInputStream().bufferedReader(Charsets.UTF_8)
   private val output = socket.getOutputStream().bufferedWriter(Charsets.UTF_8)
 
@@ -18,10 +21,9 @@ class PlayerClient(val socket: Socket) : AutoCloseable by socket {
     set(value) {
       field = value
       report(PlayerServer.Response.STATE, value.name)
-      time()
     }
 
-  private var waitLeft = 0L
+  private var waitLeft = AtomicLong(0)
 
   init {
     thread {
@@ -29,7 +31,16 @@ class PlayerClient(val socket: Socket) : AutoCloseable by socket {
         for (line in input.lineSequence()) {
           PlayerServer.State.values().firstOrNull { line.trim() == it.name }?.let {
             state = it
-          } ?: log("Unknown error $line")
+          } ?: PlayerServer.Requests.values().firstOrNull {
+            line.trim().startsWith(it.name)
+          }?.let {
+            when (it) {
+              PlayerServer.Requests.DELAY -> {
+                val delay = line.substringAfter(it.name).trim().toLong()
+                waitLeft.addAndGet(delay)
+              }
+            }
+          } ?: error("Unknown request: $line")
         }
       } catch (ex: SocketException) {
       }
@@ -37,7 +48,7 @@ class PlayerClient(val socket: Socket) : AutoCloseable by socket {
   }
 
   private fun time() {
-//    report(PlayerServer.Response.TIME, playTime.toString())
+    report(PlayerServer.Response.TIME, (System.currentTimeMillis() - startTime + playTime).toString())
   }
 
   private fun report(type: PlayerServer.Response, str: String) {
@@ -47,14 +58,14 @@ class PlayerClient(val socket: Socket) : AutoCloseable by socket {
 
   fun timeOffset(ms: Long) {
     time()
-    val start = playTime
-    waitLeft = ms
     handleState()
-    while (waitLeft > 0L) {
-      loop()
+    var wait = waitLeft.addAndGet(ms)
+    while (wait > 0L) {
+      Thread.sleep(min(100, wait))
+      wait = waitLeft.addAndGet(-min(100, wait))
+      time()
       handleState()
     }
-    playTime = Math.max(playTime, start + ms)
     time()
   }
 
@@ -69,8 +80,10 @@ class PlayerClient(val socket: Socket) : AutoCloseable by socket {
 
   fun ___start() {
     while (state != PlayerServer.State.PLAY) {
+      Thread.sleep(150)
     }
-    playTime = 0
+    playTime = 0L
+    startTime = System.currentTimeMillis()
     time()
   }
 
@@ -79,27 +92,14 @@ class PlayerClient(val socket: Socket) : AutoCloseable by socket {
     log(ex.toString())
   }
 
-  private fun loop() {
-    var previousTime = System.currentTimeMillis()
-    while (waitLeft > 0L) {
-      if (state != PlayerServer.State.PLAY) {
-        break
-      }
-      Thread.sleep(16)
-      val current = System.currentTimeMillis()
-      waitLeft -= current - previousTime
-      playTime += current - previousTime
-      time()
-      previousTime = current
-    }
-  }
-
   private fun handleState() {
     when (state) {
       PlayerServer.State.PAUSE -> {
+        playTime += System.currentTimeMillis() - startTime
         while (true) {
-          Thread.sleep(16)
+          Thread.sleep(100)
           if (state != PlayerServer.State.PAUSE) {
+            startTime = System.currentTimeMillis()
             break
           }
         }
@@ -204,10 +204,23 @@ class PlayerServer(val socket: Socket) : AutoCloseable by socket {
     sendCommand(State.PLAY)
   }
 
+  fun correctTime(delay: Long) {
+    sendRequest(Requests.DELAY, delay.toString())
+  }
+
+  private fun sendRequest(request: Requests, value: String) {
+    output.write("${request.name} $value\n")
+    output.flush()
+  }
+
   private fun sendCommand(command: State) {
     output.write(command.name)
     output.write("\n")
     output.flush()
+  }
+
+  enum class Requests {
+    DELAY
   }
 
   enum class State {

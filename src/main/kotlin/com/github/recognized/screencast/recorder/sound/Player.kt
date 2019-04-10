@@ -27,6 +27,10 @@ interface Player : AutoCloseable {
 
   val started: Boolean
 
+  val stopped: Boolean
+
+  val elapsedMillis: Double
+
   companion object {
 
     fun create(
@@ -45,13 +49,18 @@ interface Player : AutoCloseable {
   ) : Player {
     private val mySource: SourceDataLine
     private var myOnStopAction: () -> Unit = {}
+    @Volatile
     private var mySignalStopReceived = false
     private val myEditionModel = editions.copy()
+    private val frameRate: Float
+    @Volatile
+    private var myStopped: Boolean = false
 
     init {
       val fileFormat = SoundProvider.getAudioFileFormat(getAudioStream().buffered())
       val decodedFormat = SoundProvider.getWaveformPcmFormat(fileFormat.format)
       mySource = AudioSystem.getSourceDataLine(decodedFormat)
+      frameRate = decodedFormat.frameRate
       if (offsetFrames < 0) {
         myEditionModel.cut(0 until -offsetFrames)
       }
@@ -61,17 +70,24 @@ interface Player : AutoCloseable {
       mySource.stop()
     }
 
+    override val stopped: Boolean get() = myStopped
+
+    override val elapsedMillis: Double get() = (getFramePosition() / frameRate) * 1000.0
+
     override fun stop() {
       mySignalStopReceived = true
+      myStopped = true
       mySource.drain()
       mySource.flush()
       mySource.stop()
     }
 
+    @Volatile
     private var _started = false
     override val started: Boolean get() = _started
 
     override fun stopImmediately() {
+      myStopped = true
       mySignalStopReceived = true
       mySource.stop()
       mySource.flush()
@@ -79,6 +95,7 @@ interface Player : AutoCloseable {
 
     override fun close() {
       try {
+        myStopped = true
         mySource.close()
       } catch (ex: Throwable) {
       }
@@ -106,6 +123,7 @@ interface Player : AutoCloseable {
           } catch (ex: Throwable) {
             ApplicationManager.getApplication().invokeLater { errorHandler(ex) }
           } finally {
+            myStopped = true
             myOnStopAction()
           }
         }

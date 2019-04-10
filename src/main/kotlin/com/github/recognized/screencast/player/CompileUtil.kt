@@ -8,13 +8,16 @@ import java.net.URL
 import java.nio.file.Paths
 import java.util.jar.JarFile
 
+private val log = Logger("compiler")
+
 object CompileUtil {
 
   private val localCompiler: LocalCompiler by lazy { LocalCompiler() }
 
   fun compileAndRun(codeString: String) {
-    localCompiler.compileAndRunOnPooledThread(MyScriptWrapper.wrapScript(codeString),
+    localCompiler.compileAndRunOnPooledThread(MyScriptWrapper.wrapScript(codeString).also { log.info { it } },
         getAllUrls().map { Paths.get(it.toURI()).toFile().path })
+
   }
 
   private fun getAllUrls(): List<URL> {

@@ -71,22 +71,21 @@
             <action id="com.github.recognized.screencast.player.PlayScreencast"
                     class="com.github.recognized.screencast.player.PlayScreencast"
                     text="Start screencast"
-                    description="Start screencast reproducing"
-            >
-                <keyboard-shortcut first-keystroke="control alt shift R" keymap="$default"/>
+                    description="Start screencast reproducing">
+                <keyboard-shortcut first-keystroke="shift ctrl alt R" keymap="$default"/>
             </action>
             <action id="com.github.recognized.screencast.player.PauseScreencast"
                     class="com.github.recognized.screencast.player.PauseScreencast"
                     text="Pause screencast"
                     description="Pause screencast reproducing"
             >
-                <keyboard-shortcut first-keystroke="control alt shift P" keymap="$default"/>
+                <keyboard-shortcut first-keystroke="shift ctrl alt P" keymap="$default"/>
             </action>
             <action id="com.github.recognized.screencast.player.StopScreencast"
                     class="com.github.recognized.screencast.player.StopScreencast"
                     text="Stop screencast"
                     description="Stop screencast reproducing">
-                <keyboard-shortcut first-keystroke="control alt shift S" keymap="$default"/>
+                <keyboard-shortcut first-keystroke="shift ctrl alt S" keymap="$default"/>
             </action>
         </group>
     </actions>

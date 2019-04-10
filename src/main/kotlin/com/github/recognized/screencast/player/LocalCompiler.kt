@@ -64,6 +64,7 @@ class LocalCompiler {
         }
         run()
       } catch (ex: Throwable) {
+        errorOccurred = true
         ApplicationManager.getApplication().invokeLater {
           Messages.showErrorDialog(
               null,

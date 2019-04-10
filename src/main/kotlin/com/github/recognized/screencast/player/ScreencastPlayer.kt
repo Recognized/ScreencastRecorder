@@ -11,6 +11,7 @@ import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.progress.Task
+import com.intellij.openapi.ui.Messages
 import com.intellij.ui.JBColor
 import com.intellij.util.ui.JBUI
 import com.intellij.util.ui.UIUtil
@@ -24,6 +25,7 @@ import javax.swing.JOptionPane
 import java.awt.event.WindowAdapter
 import java.awt.event.WindowEvent
 import java.awt.event.WindowListener
+import java.lang.Math.abs
 
 
 class Logger(val name: String) {
@@ -56,26 +58,43 @@ class StopScreencast : AnAction() {
 
 @Volatile
 var currentController: ScreencastPlayerController? = null
+@Volatile
+var currentWindow: PlayerWindow? = null
+
+@Synchronized
+fun shutdown() {
+  errorOccurred = false
+  currentController?.stop()
+  currentController = null
+  currentWindow?.dispose()
+  currentWindow?.isVisible = false
+  currentWindow?.let { it.dispatchEvent(WindowEvent(it, WindowEvent.WINDOW_CLOSING)) }
+  currentWindow = null
+}
 
 fun showController(screencast: Path) {
-  ProgressManager.getInstance().run(object : Task.Modal(null, "Preparing screencast", false) {
+  shutdown()
+  ProgressManager.getInstance().run(object : Task.Backgroundable(null, "Preparing screencast", false) {
     override fun run(indicator: com.intellij.openapi.progress.ProgressIndicator) {
       indicator.isIndeterminate = true
       if (!indicator.isRunning) {
         indicator.start()
       }
-      val zip = ScreencastZip(screencast)
-      val controller = ScreencastPlayerController(zip)
-      controller.awaitInit(15000)
-      ApplicationManager.getApplication().invokeLater {
-        if (!errorOccurred) {
-          currentController = controller
-          PlayerWindow(zip, controller)
+      try {
+        val zip = ScreencastZip(screencast)
+        val controller = ScreencastPlayerController(zip)
+        controller.awaitInit(60000)
+        ApplicationManager.getApplication().invokeLater {
+          if (!errorOccurred) {
+            currentController = controller
+            currentWindow = PlayerWindow(zip, controller)
+          }
+          errorOccurred = false
         }
-        errorOccurred = false
-      }
-      if (indicator.isRunning) {
-        indicator.stop()
+      } finally {
+        if (indicator.isRunning) {
+          indicator.stop()
+        }
       }
     }
   })
@@ -330,9 +349,24 @@ class ScreencastPlayerController(val zip: ScreencastZip) : AutoCloseable {
       val socket = server.accept()
       log.info { "Accepted" }
       this.server = PlayerServer(socket).apply {
-        timeHandler = { log.info { "Time: $it" } }
+        timeHandler = {
+          log.info { "Time: ${it.toDouble().div(1000)}, Player: ${player?.elapsedMillis?.div(1000)}s" }
+          player?.let { player ->
+            if (!player.stopped) {
+              val d = it - player.elapsedMillis.toLong()
+              if (abs(d) >= 32) {
+                delay(d)
+              }
+            }
+          }
+        }
         logger = { clientLog.info { it } }
-        codeError = { /* TODO */ }
+        codeError = {
+          shutdown()
+          ApplicationManager.getApplication().invokeLater {
+            Messages.showErrorDialog(null, it, "Script execution error")
+          }
+        }
         stateChanged = { _, newState ->
           when (newState) {
             PlayerServer.State.PLAY -> player?.let {
@@ -408,6 +442,10 @@ class ScreencastPlayerController(val zip: ScreencastZip) : AutoCloseable {
 
   fun reset() {
     server!!.reset()
+  }
+
+  fun delay(value: Long) {
+    server!!.correctTime(value)
   }
 
   override fun close() {
