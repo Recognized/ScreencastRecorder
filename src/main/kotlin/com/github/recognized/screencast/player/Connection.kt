@@ -83,6 +83,7 @@ class PlayerClient(val socket: Socket) : AutoCloseable by socket {
       Thread.sleep(150)
     }
     playTime = 0L
+    waitLeft.set(0)
     startTime = System.currentTimeMillis()
     time()
   }

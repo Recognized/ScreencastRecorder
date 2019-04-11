@@ -1,20 +1,25 @@
 <idea-plugin>
     <id>com.github.recognized.screencast.recorder</id>
     <name>ScreencastRecorder</name>
-    <version>0.95</version>
+    <version>1.0</version>
     <idea-version since-build="182"/>
     <vendor email="vladsayf@gmail.com" url="https://github.com/Recognized">Vladislav Sayfulin</vendor>
 
     <description><![CDATA[
 
-    <p>Plugin for recording and reproducing (not yet available) IDE screencasts.</p>
+    <p>Plugin for recording and reproducing IDE screencasts.</p>
     <p>
-    Current controls:
+    Recording:
     <ul>
     <li>Start: Tools menu → Screencast Recorder →  Start recording</li>
     <li>Stop: Tools menu → Screencast Recorder → Stop recording</li>
     </ul>
     After recording has been finished, you can san save or discard recorded screencast.
+
+    Reproducing:
+    <ul>
+    <li>Start: Right click on screencast in project view → Run screencast</li>
+    </ul>
 
     See <a href="https://plugins.jetbrains.com/plugin/11442-screencasteditor">ScreencastEditor</a> plugin for editing.
     </p>
@@ -46,12 +51,17 @@
                         class="com.github.recognized.screencast.recorder.actions.StartRecordingAction"
                         text="Start recording"
                         description="Start screencast recording"
-                        icon="AllIcons.Ide.Macro.Recording_1"/>
+                        icon="AllIcons.Ide.Macro.Recording_1">
+                    <keyboard-shortcut first-keystroke="control shift alt 4" keymap="$default"/>
+                </action>
+
                 <action id="com.github.recognized.screencast.recorder.actions.StopRecordingAction"
                         class="com.github.recognized.screencast.recorder.actions.StopRecordingAction"
                         text="Stop recording"
                         description="Stop screencast recording"
-                        icon="AllIcons.Ide.Macro.Recording_2"/>
+                        icon="AllIcons.Ide.Macro.Recording_2">
+                    <keyboard-shortcut first-keystroke="control shift alt 5" keymap="$default"/>
+                </action>
             </group>
         </group>
         <group id="vladsaif.syncedit.plugin.ProjectViewGroup"
@@ -72,21 +82,24 @@
                     class="com.github.recognized.screencast.player.PlayScreencast"
                     text="Start screencast"
                     description="Start screencast reproducing">
-                <keyboard-shortcut first-keystroke="shift ctrl alt R" keymap="$default"/>
+                <keyboard-shortcut first-keystroke="control shift alt 1" keymap="$default"/>
             </action>
             <action id="com.github.recognized.screencast.player.PauseScreencast"
                     class="com.github.recognized.screencast.player.PauseScreencast"
                     text="Pause screencast"
                     description="Pause screencast reproducing"
             >
-                <keyboard-shortcut first-keystroke="shift ctrl alt P" keymap="$default"/>
+                <keyboard-shortcut first-keystroke="control shift alt 2" keymap="$default"/>
             </action>
             <action id="com.github.recognized.screencast.player.StopScreencast"
                     class="com.github.recognized.screencast.player.StopScreencast"
                     text="Stop screencast"
                     description="Stop screencast reproducing">
-                <keyboard-shortcut first-keystroke="shift ctrl alt S" keymap="$default"/>
+                <keyboard-shortcut first-keystroke="control shift alt 3" keymap="$default"/>
             </action>
         </group>
+        <action id="com.github.recognized.screencast.player.RunScreencastFromFileChooser"
+                class="com.github.recognized.screencast.player.RunScreencastFromFileChooser"
+                text="Choose and run screencast" description="Choose and run screencast"/>
     </actions>
 </idea-plugin>

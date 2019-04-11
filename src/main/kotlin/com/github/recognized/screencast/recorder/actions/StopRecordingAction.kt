@@ -6,10 +6,6 @@ import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.ShortcutSet
 
-//fun x() {
-//  ActionManager.getInstance().registerAction()
-//}
-
 class StopRecordingAction : AnAction() {
 
   override fun actionPerformed(e: AnActionEvent) {
@@ -18,9 +14,5 @@ class StopRecordingAction : AnAction() {
 
   override fun update(e: AnActionEvent) {
 //    e.presentation.isEnabled = GlobalActionRecorder.isActive
-  }
-
-  override fun setShortcutSet(shortcutSet: ShortcutSet) {
-    super.setShortcutSet(shortcutSet)
   }
 }

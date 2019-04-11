@@ -31,9 +31,13 @@ import java.lang.Math.abs
 class Logger(val name: String) {
 
   fun info(f: () -> Any) {
-    println("[$name] " + f())
+    if (enabled) {
+      println("[$name] " + f())
+    }
   }
 }
+
+const val enabled = true
 
 @Volatile
 var errorOccurred = false
