@@ -1,5 +1,6 @@
 package com.github.recognized.screencast.player
 
+import java.io.PipedInputStream
 import java.net.InetAddress
 import java.net.Socket
 import java.net.SocketException
@@ -13,8 +14,9 @@ class PlayerClient(val socket: Socket) : AutoCloseable by socket {
 
   private var playTime = 0L
   private var startTime = 0L
-  private val input = socket.getInputStream().bufferedReader(Charsets.UTF_8)
-  private val output = socket.getOutputStream().bufferedWriter(Charsets.UTF_8)
+  private val st = socket.getInputStream()
+  private val input = st.bufferedReader(Charsets.UTF_8)
+  private val output = socket.getOutputStream().writer(Charsets.UTF_8)
 
   @Volatile
   private var state: PlayerServer.State = PlayerServer.State.IDLE
@@ -28,6 +30,9 @@ class PlayerClient(val socket: Socket) : AutoCloseable by socket {
   init {
     thread {
       try {
+        while (st.available() == 0 && !socket.isInputShutdown) {
+          Thread.sleep(100)
+        }
         for (line in input.lineSequence()) {
           PlayerServer.State.values().firstOrNull { line.trim() == it.name }?.let {
             state = it
@@ -41,6 +46,9 @@ class PlayerClient(val socket: Socket) : AutoCloseable by socket {
               }
             }
           } ?: error("Unknown request: $line")
+          while (st.available() == 0 && !socket.isInputShutdown) {
+            Thread.sleep(100)
+          }
         }
       } catch (ex: SocketException) {
       }
