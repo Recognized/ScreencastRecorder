@@ -3,13 +3,13 @@ package com.github.recognized.screencast.player
 import com.intellij.testGuiFramework.recorder.compile.ScriptWrapper
 
 object MyScriptWrapper {
-
-  fun wrapScript(code: String): String {
-    return """
+    
+    fun wrapScript(code: String): String {
+        return """
       import com.github.recognized.screencast.player.*
 
       ${ScriptWrapper.wrapScript(
-        """
+                """
           with(___connectClient()) {
             while (true) {
               try {
@@ -27,5 +27,5 @@ object MyScriptWrapper {
           }
           """)}
     """
-  }
+    }
 }

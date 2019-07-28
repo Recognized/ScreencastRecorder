@@ -10,195 +10,195 @@ import kotlin.concurrent.thread
 import kotlin.math.min
 
 interface Player : AutoCloseable {
-
-  fun setOnStopAction(action: () -> Unit)
-
-  fun getFramePosition(): Long
-
-  fun play(errorHandler: (Throwable) -> Unit)
-
-  fun resume()
-
-  fun pause()
-
-  fun stop()
-
-  fun stopImmediately()
-
-  val started: Boolean
-
-  val stopped: Boolean
-
-  val elapsedMillis: Double
-
-  companion object {
-
-    fun create(
-      editions: EditionsView,
-      offsetFrames: Long,
-      getAudioStream: () -> InputStream
-    ): Player {
-      return PlayerImpl(editions, offsetFrames, getAudioStream)
+    
+    fun setOnStopAction(action: () -> Unit)
+    
+    fun getFramePosition(): Long
+    
+    fun play(errorHandler: (Throwable) -> Unit)
+    
+    fun resume()
+    
+    fun pause()
+    
+    fun stop()
+    
+    fun stopImmediately()
+    
+    val started: Boolean
+    
+    val stopped: Boolean
+    
+    val elapsedMillis: Double
+    
+    companion object {
+        
+        fun create(
+                editions: EditionsView,
+                offsetFrames: Long,
+                getAudioStream: () -> InputStream
+        ): Player {
+            return PlayerImpl(editions, offsetFrames, getAudioStream)
+        }
     }
-  }
-
-  private class PlayerImpl(
-    editions: EditionsView,
-    private val offsetFrames: Long,
-    private val getAudioStream: () -> InputStream
-  ) : Player {
-    private val mySource: SourceDataLine
-    private var myOnStopAction: () -> Unit = {}
-    @Volatile
-    private var mySignalStopReceived = false
-    private val myEditionModel = editions.copy()
-    private val frameRate: Float
-    @Volatile
-    private var myStopped: Boolean = false
-
-    init {
-      val fileFormat = SoundProvider.getAudioFileFormat(getAudioStream().buffered())
-      val decodedFormat = SoundProvider.getWaveformPcmFormat(fileFormat.format)
-      mySource = AudioSystem.getSourceDataLine(decodedFormat)
-      frameRate = decodedFormat.frameRate
-      if (offsetFrames < 0) {
-        myEditionModel.cut(0 until -offsetFrames)
-      }
-    }
-
-    override fun pause() {
-      mySource.stop()
-    }
-
-    override val stopped: Boolean get() = myStopped
-
-    override val elapsedMillis: Double get() = (getFramePosition() / frameRate) * 1000.0
-
-    override fun stop() {
-      mySignalStopReceived = true
-      myStopped = true
-      mySource.drain()
-      mySource.flush()
-      mySource.stop()
-    }
-
-    @Volatile
-    private var _started = false
-    override val started: Boolean get() = _started
-
-    override fun stopImmediately() {
-      myStopped = true
-      mySignalStopReceived = true
-      mySource.stop()
-      mySource.flush()
-    }
-
-    override fun close() {
-      try {
-        myStopped = true
-        mySource.close()
-      } catch (ex: Throwable) {
-      }
-    }
-
-    override fun resume() {
-      mySource.start()
-    }
-
-    override fun setOnStopAction(action: () -> Unit) {
-      myOnStopAction = action
-    }
-
-    override fun getFramePosition(): Long {
-      return mySource.longFramePosition
-    }
-
-    override fun play(errorHandler: (Throwable) -> Unit) {
-      mySource.start()
-      _started = true
-      thread(start = true) {
-        SoundProvider.withWaveformPcmStream(getAudioStream()) { inputStream ->
-          try {
-            applyEditionImpl(inputStream)
-          } catch (ex: Throwable) {
-            ApplicationManager.getApplication().invokeLater { errorHandler(ex) }
-          } finally {
+    
+    private class PlayerImpl(
+            editions: EditionsView,
+            private val offsetFrames: Long,
+            private val getAudioStream: () -> InputStream
+    ) : Player {
+        private val mySource: SourceDataLine
+        private var myOnStopAction: () -> Unit = {}
+        @Volatile
+        private var mySignalStopReceived = false
+        private val myEditionModel = editions.copy()
+        private val frameRate: Float
+        @Volatile
+        private var myStopped: Boolean = false
+        
+        init {
+            val fileFormat = SoundProvider.getAudioFileFormat(getAudioStream().buffered())
+            val decodedFormat = SoundProvider.getWaveformPcmFormat(fileFormat.format)
+            mySource = AudioSystem.getSourceDataLine(decodedFormat)
+            frameRate = decodedFormat.frameRate
+            if (offsetFrames < 0) {
+                myEditionModel.cut(0 until -offsetFrames)
+            }
+        }
+        
+        override fun pause() {
+            mySource.stop()
+        }
+        
+        override val stopped: Boolean get() = myStopped
+        
+        override val elapsedMillis: Double get() = (getFramePosition() / frameRate) * 1000.0
+        
+        override fun stop() {
+            mySignalStopReceived = true
             myStopped = true
-            myOnStopAction()
-          }
+            mySource.drain()
+            mySource.flush()
+            mySource.stop()
         }
-      }
-    }
-
-    private fun applyEditionImpl(decodedStream: AudioInputStream) {
-      val editions = myEditionModel.editionsModel
-      if (!mySource.isOpen) {
-        mySource.open(decodedStream.format)
-      }
-      ApplicationManager.getApplication().invokeLater { mySource.start() }
-      val buffer = ByteArray(1 shl 14)
-      val frameSize = decodedStream.format.frameSize
-      if (offsetFrames > 0) {
-        buffer.fill(0)
-        var needBytes = offsetFrames * frameSize
-        while (needBytes != 0L) {
-          val zeroesCount = min(buffer.size.toLong(), needBytes).toInt().modFloor(frameSize)
-          writeOrBlock(buffer, zeroesCount)
-          needBytes -= zeroesCount
+        
+        @Volatile
+        private var _started = false
+        override val started: Boolean get() = _started
+        
+        override fun stopImmediately() {
+            myStopped = true
+            mySignalStopReceived = true
+            mySource.stop()
+            mySource.flush()
         }
-      }
-      outer@ for (edition in editions) {
-        var needBytes = edition.first.length * frameSize
-        when (edition.second) {
-          EditionsModel.EditionType.CUT -> {
-            while (needBytes != 0L && !mySignalStopReceived) {
-              SoundProvider.skipFrames(decodedStream, buffer, edition.first.length)
-              needBytes = 0L
+        
+        override fun close() {
+            try {
+                myStopped = true
+                mySource.close()
+            } catch (ex: Throwable) {
             }
-          }
-          EditionsModel.EditionType.MUTE -> {
-            buffer.fill(0)
-            var needSkip = needBytes
-            while (needBytes != 0L || needSkip != 0L) {
-              if (needBytes != 0L) {
-                val zeroesCount = min(buffer.size.toLong(), needBytes).toInt().modFloor(frameSize)
-                if (mySignalStopReceived) {
-                  break@outer
+        }
+        
+        override fun resume() {
+            mySource.start()
+        }
+        
+        override fun setOnStopAction(action: () -> Unit) {
+            myOnStopAction = action
+        }
+        
+        override fun getFramePosition(): Long {
+            return mySource.longFramePosition
+        }
+        
+        override fun play(errorHandler: (Throwable) -> Unit) {
+            mySource.start()
+            _started = true
+            thread(start = true) {
+                SoundProvider.withWaveformPcmStream(getAudioStream()) { inputStream ->
+                    try {
+                        applyEditionImpl(inputStream)
+                    } catch (ex: Throwable) {
+                        ApplicationManager.getApplication().invokeLater { errorHandler(ex) }
+                    } finally {
+                        myStopped = true
+                        myOnStopAction()
+                    }
                 }
-                writeOrBlock(buffer, zeroesCount)
-                needBytes -= zeroesCount
-              }
-              if (needSkip != 0L) {
-                SoundProvider.skipFrames(decodedStream, buffer, edition.first.length)
-                needSkip = 0L
-                buffer.fill(0)
-              }
             }
-          }
-          EditionsModel.EditionType.NO_CHANGES -> {
-            while (needBytes != 0L) {
-              val read = decodedStream.read(buffer, 0, min(buffer.size.toLong(), needBytes).toInt())
-              if (read == -1 || mySignalStopReceived) {
-                break@outer
-              }
-              needBytes -= read
-              writeOrBlock(buffer, read)
-            }
-          }
         }
-      }
+        
+        private fun applyEditionImpl(decodedStream: AudioInputStream) {
+            val editions = myEditionModel.editionsModel
+            if (!mySource.isOpen) {
+                mySource.open(decodedStream.format)
+            }
+            ApplicationManager.getApplication().invokeLater { mySource.start() }
+            val buffer = ByteArray(1 shl 14)
+            val frameSize = decodedStream.format.frameSize
+            if (offsetFrames > 0) {
+                buffer.fill(0)
+                var needBytes = offsetFrames * frameSize
+                while (needBytes != 0L) {
+                    val zeroesCount = min(buffer.size.toLong(), needBytes).toInt().modFloor(frameSize)
+                    writeOrBlock(buffer, zeroesCount)
+                    needBytes -= zeroesCount
+                }
+            }
+            outer@ for (edition in editions) {
+                var needBytes = edition.first.length * frameSize
+                when (edition.second) {
+                    EditionsModel.EditionType.CUT -> {
+                        while (needBytes != 0L && !mySignalStopReceived) {
+                            SoundProvider.skipFrames(decodedStream, buffer, edition.first.length)
+                            needBytes = 0L
+                        }
+                    }
+                    EditionsModel.EditionType.MUTE -> {
+                        buffer.fill(0)
+                        var needSkip = needBytes
+                        while (needBytes != 0L || needSkip != 0L) {
+                            if (needBytes != 0L) {
+                                val zeroesCount = min(buffer.size.toLong(), needBytes).toInt().modFloor(frameSize)
+                                if (mySignalStopReceived) {
+                                    break@outer
+                                }
+                                writeOrBlock(buffer, zeroesCount)
+                                needBytes -= zeroesCount
+                            }
+                            if (needSkip != 0L) {
+                                SoundProvider.skipFrames(decodedStream, buffer, edition.first.length)
+                                needSkip = 0L
+                                buffer.fill(0)
+                            }
+                        }
+                    }
+                    EditionsModel.EditionType.NO_CHANGES -> {
+                        while (needBytes != 0L) {
+                            val read = decodedStream.read(buffer, 0, min(buffer.size.toLong(), needBytes).toInt())
+                            if (read == -1 || mySignalStopReceived) {
+                                break@outer
+                            }
+                            needBytes -= read
+                            writeOrBlock(buffer, read)
+                        }
+                    }
+                }
+            }
+        }
+        
+        fun Int.modFloor(modulus: Int): Int {
+            return this - this % modulus
+        }
+        
+        private fun writeOrBlock(buffer: ByteArray, size: Int) {
+            var needWrite = size
+            while (needWrite != 0) {
+                val written = mySource.write(buffer, size - needWrite, needWrite)
+                needWrite -= written
+            }
+        }
     }
-
-    fun Int.modFloor(modulus: Int): Int {
-      return this - this % modulus
-    }
-
-    private fun writeOrBlock(buffer: ByteArray, size: Int) {
-      var needWrite = size
-      while (needWrite != 0) {
-        val written = mySource.write(buffer, size - needWrite, needWrite)
-        needWrite -= written
-      }
-    }
-  }
 }
