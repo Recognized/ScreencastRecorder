@@ -43,9 +43,9 @@ class ScreencastZip(val path: Path) {
         
         override fun read() = myStream.read()
         
-        override fun read(b: ByteArray?) = myStream.read(b)
+        override fun read(b: ByteArray) = myStream.read(b)
         
-        override fun read(b: ByteArray?, off: Int, len: Int) = myStream.read(b, off, len)
+        override fun read(b: ByteArray, off: Int, len: Int) = myStream.read(b, off, len)
         
         override fun available() = myStream.available()
         

@@ -1,10 +1,12 @@
 package com.github.recognized.screencast.player
 
+import com.intellij.ide.plugins.cl.PluginClassLoader
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.ServiceManager
 import com.intellij.testGuiFramework.recorder.actions.PerformScriptAction
 import java.io.File
 import java.net.URL
+import java.net.URLClassLoader
 import java.nio.file.Paths
 import java.util.jar.JarFile
 
@@ -14,8 +16,8 @@ object CompileUtil {
     
     private val localCompiler: LocalCompiler by lazy { LocalCompiler() }
     
-    fun compileAndRun(codeString: String) {
-        localCompiler.compileAndRunOnPooledThread(MyScriptWrapper.wrapScript(codeString).also { log.info { it } },
+    fun compile(codeString: String): Scenario {
+        return localCompiler.compileAndGet(MyScriptWrapper.wrapScript(codeString).also { log.info { it } },
                 getAllUrls().map { Paths.get(it.toURI()).toFile().path })
         
     }
@@ -35,11 +37,11 @@ object CompileUtil {
         
         val set = mutableSetOf<URL>()
         set.addAll(ServiceManager::class.java.classLoader.forcedUrls())
+        set.addAll(ServiceManager::class.java.classLoader.forcedBaseUrls())
         set.addAll(PerformScriptAction::class.java.classLoader.forcedUrls())
         set.addAll(PerformScriptAction::class.java.classLoader.forcedBaseUrls())
+        set.addAll(ScreencastPlayerController::class.java.classLoader.forcedUrls())
         set.addAll(ScreencastPlayerController::class.java.classLoader.forcedBaseUrls())
-        if (!ApplicationManager.getApplication().isUnitTestMode)
-            set.addAll(ServiceManager::class.java.classLoader.forcedBaseUrls())
         expandClasspathInJar(set)
         return set.toList()
     }
@@ -71,13 +73,13 @@ object CompileUtil {
     }
     
     private fun ClassLoader.forcedBaseUrls(): List<URL> {
-        try {
-            return ((this.javaClass.getMethod("getBaseUrls").invoke(this) as? List<*>)!!
+        return try {
+            ((this.javaClass.getMethod("getBaseUrls").invoke(this) as? List<*>)!!
                     .filterIsInstance(URL::class.java)
                     .map { if (it.protocol == "jar") URL(it.toString().removeSurrounding("jar:", "!/")) else it })
             
         } catch (e: NoSuchMethodException) {
-            return emptyList()
+            emptyList()
         }
     }
 }
